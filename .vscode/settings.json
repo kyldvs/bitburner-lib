@@ -1,0 +1,6 @@
+{
+    "bitburner.scriptRoot": "sync",
+    "bitburner.showPushSuccessNotification": true,
+    "javascript.preferences.quoteStyle": "single",
+    "typescript.preferences.quoteStyle": "single"
+}
