@@ -6,6 +6,10 @@
     "outDir": "dist",
     "checkJs": true,
     "lib": ["es2016", "dom", "es2017.object", "es2019"],
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
     "paths": {
       "*": ["../types/*.d.ts"]
     }
