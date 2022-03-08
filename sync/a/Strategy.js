@@ -50,6 +50,24 @@ class Queue {
 }
 
 /**
+ * @param {number} max
+ * @returns {Array<number>}
+ */
+const getPurchasedRAMStages = (max) => {
+  const stages = [64];
+  while (stages[stages.length - 1] < max) {
+    stages.push(stages[stages.length - 1] * 4);
+  }
+  while (stages[stages.length - 1] > max) {
+    stages.pop();
+  }
+  if (stages[stages.length - 1] !== max) {
+    stages.push(max);
+  }
+  return stages;
+};
+
+/**
  * Creates a bag of utils, wrapping up the given ns object into a nicer API.
  *
  * @param {NS} ns
@@ -68,6 +86,12 @@ async function createUtils(ns) {
     minWorkerRAM: 4,
     // The amount of RAM needed before excluding non-purchased servers.
     minWorkerPoolRAM: 1024 * 32,
+
+    purchased: {
+      maxRAM: ns.getPurchasedServerMaxRam(),
+      maxCount: ns.getPurchasedServerLimit(),
+      stages: getPurchasedRAMStages(ns.getPurchasedServerMaxRam()),
+    },
 
     script: {
       growTarget: '/a/target/GrowTarget.js',
@@ -342,9 +366,9 @@ async function createUtils(ns) {
       const needsWork = distribution.map((threads) => threads > 0);
 
       // 5 attempts to prevent infinite loop.
-      let attempt = 0;
-      while (attempt < 5) {
-        attempt++;
+      let execAttempts = 0;
+      while (execAttempts < 5) {
+        execAttempts++;
 
         let hasMoreWork = false;
         for (let i = 0; i < workerCopy.length; i++) {
@@ -398,7 +422,17 @@ async function createUtils(ns) {
   };
 
   const sync = {
-    getPlayerMoney: () => ns.getPlayer().money,
+    /**
+     * @returns {Player}
+     */
+    getPlayer: () => {
+      const player = ns.getPlayer();
+
+      return {
+        money: player.money,
+        hackSkill: player.hacking,
+      };
+    },
 
     /**
      * @param {Server} server
@@ -445,7 +479,7 @@ async function createUtils(ns) {
       if (sync.hasBruteSSH()) {
         ns.brutessh(server.name);
       }
-      if (sync.buyFTPCrack()) {
+      if (sync.hasFTPCrack()) {
         ns.ftpcrack(server.name);
       }
       if (sync.hasRelaySMTP()) {
@@ -484,11 +518,42 @@ async function createUtils(ns) {
     buyFormulas: () => ns.purchaseProgram('Formulas.exe'),
 
     killChildren,
+
+    getServerCost: (gb) => {
+      return ns.getPurchasedServerCost(gb);
+    },
+
+    buyServer: (name, gb) => {
+      const newName = ns.purchaseServer(name, gb);
+      return newName !== '';
+    },
+
+    /**
+     * @param {Server} server
+     * @returns {boolean}
+     */
+    killAndDeleteServer: (server) => {
+      // I don't think this is possible, but let's be safe.
+      if (server.isHome) {
+        log.warn(`Attempted to delete home. Aborting.`);
+        return false;
+      }
+
+      ns.killall(server.name);
+      return ns.deleteServer(server.name);
+    },
   };
 
   const async = {
     getAllServers: async () => {
       const servers = await dfs('home', new Set(), [], () => true);
+      return servers;
+    },
+
+    getPurchasedServers: async () => {
+      const servers = await dfs('home', new Set(), [], (server) => {
+        return server.isPurchased && !server.isHome;
+      });
       return servers;
     },
 
@@ -711,7 +776,10 @@ async function runStrategy(compiled) {
   const { ns, strategy, utils } = compiled;
   const { api, log } = utils;
 
-  const onceSpecs = Object.keys(strategy.once).map((key) => strategy.once[key]);
+  const onceSpecs = Object.keys(strategy.once).map((key) => ({
+    ...strategy.once[key],
+    name: key,
+  }));
   const once = {
     specs: onceSpecs,
     done: onceSpecs.map(() => false),
@@ -734,6 +802,7 @@ async function runStrategy(compiled) {
       const done = await spec.verify();
       if (done) {
         once.done[i] = true;
+        log.info(` > Once done: ${spec.name}`);
         continue;
       }
 
@@ -755,6 +824,7 @@ async function runStrategy(compiled) {
     const spec = strategy.loop[key];
     if (spec.runForever) {
       return {
+        name: key,
         // Setting to 0 will end up using clock speed, no additional delay.
         interval: spec.runInterval == null ? 0 : spec.runInterval,
         done: () => false,
@@ -762,6 +832,7 @@ async function runStrategy(compiled) {
       };
     } else {
       return {
+        name: key,
         // Setting to 0 will end up using clock speed, no additional delay.
         interval: spec.runInterval == null ? 0 : spec.runInterval,
         done: spec.runUntil == null ? () => false : spec.runUntil,
@@ -786,6 +857,7 @@ async function runStrategy(compiled) {
       const done = await spec.done();
       if (done) {
         loop.done[i] = true;
+        log.info(` > Loop done: ${spec.name}`);
         continue;
       }
 

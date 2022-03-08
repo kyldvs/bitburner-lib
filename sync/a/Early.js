@@ -1,4 +1,3 @@
-import CommonStrategy from 'a/CommonStrategy.js';
 import Strategy from 'a/Strategy.js';
 
 /**
@@ -17,17 +16,12 @@ export async function main(ns) {
 
       once: {
         // ...CommonStrategy.buyPrograms(utils),
-        buyTor: {
-          runWhen: () => api.sync.getPlayerMoney() > constants.cost.tor,
-          verify: () => api.sync.hasTor(),
-          run: () => api.sync.buyTor(),
-        },
+        // ...CommonStrategy.buyTor(utils),
       },
 
       loop: {
         printStatus: {
           runForever: true,
-
           runInterval: constants.time.minuteMS * 2,
           run: async () => {
             // Print things like next step. Servers to backdoor. Exes to buy.
@@ -36,8 +30,74 @@ export async function main(ns) {
           },
         },
 
+        buyServers: {
+          runUntil: async () => {
+            const servers = await api.async.getPurchasedServers();
+            return (
+              servers.length === constants.purchased.maxCount &&
+              !servers.some(
+                (server) => server.ram.max < constants.purchased.maxRAM,
+              )
+            );
+          },
+
+          run: async () => {
+            const stages = constants.purchased.stages;
+            const counts = stages.map(() => 0);
+            const targetCount = 4;
+            const servers = await api.async.getPurchasedServers();
+
+            // Find current stage.
+            let curr = -1;
+            let minValue = -1;
+            let minServer = -1;
+            for (let i = 0; i < servers.length; i++) {
+              const server = servers[i];
+              for (let j = 0; j < stages.length; j++) {
+                if (server.ram.max === stages[j]) {
+                  counts[j]++;
+                  curr = Math.max(curr, j);
+                  if (minValue === -1 || j < minValue) {
+                    minValue = j;
+                    minServer = i;
+                  }
+                }
+              }
+            }
+
+            const shouldIncrease =
+              curr < stages.length - 1 && counts[curr] < targetCount;
+            const next = shouldIncrease ? curr + 1 : curr;
+
+            const prefix = next === stages.length - 1 ? 'max' : 'stage' + next;
+            const cost = api.sync.getServerCost(stages[next]);
+            const player = api.sync.getPlayer();
+            if (player.money > cost * 1.1) {
+              let number = servers.length;
+              if (servers.length >= constants.purchased.maxCount) {
+                if (minServer === -1) {
+                  log.warn(`Need to free server, but didn't find any.`);
+                  return;
+                }
+                number = parseInt(servers[minServer].name.split('-')[1], 10);
+                const deleted = api.sync.killAndDeleteServer(
+                  servers[minServer],
+                );
+                if (!deleted) {
+                  log.warn(`Failed deleting: ${servers[minServer].name}`);
+                  return;
+                }
+              }
+              const name = prefix + '-' + number;
+              const bought = api.sync.buyServer(name, stages[next]);
+              if (!bought) {
+                log.warn(`Failed to buy server: ${name}`);
+              }
+            }
+          },
+        },
+
         // upgradeHomeServer: {},
-        // buyServers: {},
 
         // Nuke all servers until they are all root.
         nuke: {
@@ -54,7 +114,6 @@ export async function main(ns) {
                 const result = api.sync.nuke(server);
               }
             }
-            // TODO: Print results, or defer to status?
           },
         },
 

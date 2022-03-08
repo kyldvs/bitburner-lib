@@ -11,6 +11,11 @@ declare global {
     getFirst: () => T | undefined;
   }
 
+  interface Player {
+    money: number;
+    hackSkill: number;
+  }
+
   interface Server {
     name: string;
     isRoot: boolean;
@@ -86,6 +91,12 @@ declare global {
     minWorkerRAM: number;
     minWorkerPoolRAM: number;
 
+    purchased: {
+      maxRAM: number;
+      maxCount: number;
+      stages: Array<number>;
+    };
+
     script: {
       growTarget: string;
       hackTarget: string;
@@ -134,7 +145,7 @@ declare global {
 
     api: {
       sync: {
-        getPlayerMoney: () => number;
+        getPlayer: () => Player;
 
         canNuke: (server: Server) => boolean;
         nuke: (server: Server) => void;
@@ -163,10 +174,15 @@ declare global {
         buyFormulas: () => boolean;
 
         killChildren: () => void;
+
+        buyServer: (name: string, gb: number) => boolean;
+        getServerCost: (gb: number) => number;
+        killAndDeleteServer: (server: Server) => boolean;
       };
 
       async: {
         getAllServers: () => Promise<Array<Server>>;
+        getPurchasedServers: () => Promise<Array<Server>>;
         getRandomTarget: () => Promise<Server>;
 
         getGrowQuality: (server: Server, options?: GrowQualityOptions) => Promise<number>;
