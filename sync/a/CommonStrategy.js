@@ -4,14 +4,8 @@ const CommonStrategy = {
   /**
    * @param {Utils} utils
    */
-  buyThingsOnce: ({ api, constants }) => {
+  buyPrograms: ({ api, constants }) => {
     return {
-      buyTor: {
-        runWhen: () => api.sync.getPlayerMoney() > constants.cost.tor,
-        verify: () => api.sync.hasTor(),
-        run: () => api.sync.buyTor(),
-      },
-
       buyBruteSSH: {
         runWhen: () => api.sync.getPlayerMoney() > constants.cost.bruteSSH,
         verify: () => api.sync.hasBruteSSH(),

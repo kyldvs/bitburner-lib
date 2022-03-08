@@ -231,12 +231,20 @@ async function createUtils(ns) {
   };
 
   /**
+   * @param {Server} server
+   * @returns {number}
+   */
+  const getMaxRAM = (server) => {
+    return Math.floor(Math.max(0, server.ram.max - server.ram.reserve));
+  };
+
+  /**
    * @param {Array<Server>} workers
    * @returns {number}
    */
   const sumMaxRAM = (workers) => {
     return workers.reduce((sum, server) => {
-      return sum + Math.max(0, server.ram.max - server.ram.reserve);
+      return sum + getMaxRAM(server);
     }, 0);
   };
 
@@ -245,7 +253,9 @@ async function createUtils(ns) {
    * @returns {number}
    */
   const getAvailableRAM = (server) => {
-    return Math.max(0, server.ram.max - server.ram.reserve);
+    return Math.floor(
+      Math.max(0, server.ram.max - server.ram.reserve - server.ram.used),
+    );
   };
 
   /**
@@ -320,7 +330,8 @@ async function createUtils(ns) {
       // How to distribute exec calls to workers.
       const distribution = workerCopy.map((worker) => {
         const ram = getAvailableRAM(worker);
-        const toRun = Math.max(threads, Math.floor(ram / scriptCost));
+        const possible = Math.floor(ram / scriptCost);
+        const toRun = Math.max(0, Math.min(threads, possible));
         threads -= toRun;
         // Not necessary, but defensive.
         threads = Math.max(threads, 0);
@@ -345,7 +356,7 @@ async function createUtils(ns) {
 
           // Setup worker.
           await ns.scp(options.script, worker.name);
-          if (!ns.fileExists(options.script)) {
+          if (!ns.fileExists(options.script, worker.name)) {
             hasMoreWork = true;
             continue;
           }
@@ -613,12 +624,6 @@ async function createUtils(ns) {
      * @returns {Promise<boolean>}
      */
     grow: async (server, options) => {
-      const scriptRam = ns.getScriptRam(constants.script.growTarget);
-
-      // Double check in case script is reported as "missing".
-      const ram = scriptRam <= 0 ? 2 : scriptRam;
-      const ramNeeded = ram * options.threads;
-
       const workerPool = await getWorkerPool();
       const result = await workerPool.exec({
         script: constants.script.growTarget,
@@ -800,7 +805,9 @@ async function runStrategy(compiled) {
   // Can add an option to prevent this in the future.
   const killChildrenAtExit = true;
   ns.atExit(() => {
+    log.info(`Exiting strategy: ${compiled.strategy.name}`);
     if (killChildrenAtExit) {
+      log.info(` > Killing Child Processes`);
       api.sync.killChildren();
     }
   });

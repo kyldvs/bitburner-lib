@@ -16,7 +16,12 @@ export async function main(ns) {
       },
 
       once: {
-        ...CommonStrategy.buyThingsOnce(utils),
+        // ...CommonStrategy.buyPrograms(utils),
+        buyTor: {
+          runWhen: () => api.sync.getPlayerMoney() > constants.cost.tor,
+          verify: () => api.sync.hasTor(),
+          run: () => api.sync.buyTor(),
+        },
       },
 
       loop: {
@@ -27,7 +32,7 @@ export async function main(ns) {
           run: async () => {
             // Print things like next step. Servers to backdoor. Exes to buy.
             // Server ram available. Etc. Etc.
-            log.info(`====== Hello ======`);
+            log.info(` > Status: TODO`);
           },
         },
 
@@ -59,8 +64,8 @@ export async function main(ns) {
           run: async () => {
             const target = await api.async.getRandomTarget();
 
-            const threads = 4;
-            const idealMoneyPercent = 0.05;
+            const threads = 1024 * 4;
+            const idealMoneyPercent = 0.5;
 
             const growQuality = await api.async.getGrowQuality(target, {
               idealMoneyPercent,
