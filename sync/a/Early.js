@@ -22,6 +22,7 @@ export async function main(ns) {
       loop: {
         printStatus: {
           runForever: true,
+
           runInterval: constants.time.minuteMS * 2,
           run: async () => {
             // Print things like next step. Servers to backdoor. Exes to buy.
@@ -45,7 +46,7 @@ export async function main(ns) {
             const allServers = await api.async.getAllServers();
             for (const server of allServers) {
               if (api.sync.canNuke(server)) {
-                const result = await api.async.nuke(server);
+                const result = api.sync.nuke(server);
               }
             }
             // TODO: Print results, or defer to status?
@@ -55,7 +56,6 @@ export async function main(ns) {
         // Randomly grow, weaken and hack servers.
         randomHacking: {
           runForever: true,
-
           run: async () => {
             const target = await api.async.getRandomTarget();
 

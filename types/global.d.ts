@@ -4,10 +4,18 @@ import * as Types from './NetScriptDefinitions';
 declare global {
   type NS = Types.NS;
 
+  interface MyQueue<T> {
+    getSize: () => number;
+    addLast: (el: T) => void;
+    removeFirst: () => T | undefined;
+    getFirst: () => T | undefined;
+  }
+
   interface Server {
     name: string;
     isRoot: boolean;
     isPurchased: boolean;
+    isHome: boolean;
 
     hack: {
       required: number;
@@ -17,6 +25,26 @@ declare global {
       open: number;
       required: number;
     };
+
+    money: {
+      min: number;
+      curr: number;
+      max: number;
+    };
+
+    difficulty: {
+      min: number;
+      curr: number;
+      max: number;
+      start: number;
+    };
+
+    cores: number;
+    ram: {
+      used: number;
+      max: number;
+      reserve: number;
+    }
   }
 
   interface GrowOptions {
@@ -43,39 +71,65 @@ declare global {
     idealMoneyPercent?: number;
   }
 
-  interface Utils {
-    constants: {
-      cost: {
-        tor: number;
-        bruteSSH: number;
-        ftpCrack: number;
-        relaySMTP: number;
-        httpWorm: number;
-        sqlInject: number;
-        serverProfiler: number;
-        deepScanV1: number;
-        deepScanV2: number;
-        autoLink: number;
-        formulas: number;
-      };
+  interface ExecOptions {
+    script: string,
+    threads: number,
+    args: Array<string>,
+  }
 
-      time: {
-        minuteMS: number;
-      };
+  interface WorkerPool {
+    exec: (options: ExecOptions) => Promise<boolean>;
+  }
 
-      quality: {
-        invalid: number,
-        low: number;
-        medium: number;
-        high: number;
-        perfect: number;
-      };
+  interface Constants {
+    minTargetMoney: number;
+    minWorkerRAM: number;
+    minWorkerPoolRAM: number;
+
+    script: {
+      growTarget: string;
+      hackTarget: string;
+      weakenTarget: string;
     };
+
+    cost: {
+      tor: number;
+      bruteSSH: number;
+      ftpCrack: number;
+      relaySMTP: number;
+      httpWorm: number;
+      sqlInject: number;
+      serverProfiler: number;
+      deepScanV1: number;
+      deepScanV2: number;
+      autoLink: number;
+      formulas: number;
+    };
+
+    time: {
+      minuteMS: number;
+    };
+
+    quality: {
+      invalid: number,
+      low: number;
+      medium: number;
+      high: number;
+      perfect: number;
+    };
+  }
+
+  interface Utils {
+    constants: Constants;
 
     log: {
       info: (s: string) => void;
       warn: (s: string) => void;
       error: (s: string) => void;
+    };
+
+    random: {
+      int: (min: number, max: number) => number;
     };
 
     api: {
@@ -108,6 +162,7 @@ declare global {
         hasFormulas: () => boolean;
         buyFormulas: () => boolean;
 
+        killChildren: () => void;
       };
 
       async: {
@@ -118,11 +173,9 @@ declare global {
         getWeakenQuality: (server: Server, options?: WeakenQualityOptions) => Promise<number>;
         getHackQuality: (server: Server, options?: HackQualityOptions) => Promise<number>;
 
-        grow: (server: Server, options: GrowOptions) => Promise<void>;
-        weaken: (server: Server, options: WeakenOptions) => Promise<void>;
-        hack: (server: Server, options: HackOptions) => Promise<void>;
-
-        nuke: (server: Server) => Promise<boolean>;
+        grow: (server: Server, options: GrowOptions) => Promise<boolean>;
+        weaken: (server: Server, options: WeakenOptions) => Promise<boolean>;
+        hack: (server: Server, options: HackOptions) => Promise<boolean>;
       };
     };
   }
@@ -133,12 +186,20 @@ declare global {
     run: () => Promise<any> | any;
   }
 
-  interface SpecLoop {
-    runForever?: boolean;
+  interface SpecLoopForever {
+    runForever: true;
+    runInterval?: number;
+    run: () => Promise<any> | any;
+  }
+
+  interface SpecLoopUntil {
+    runForever?: undefined;
     runInterval?: number;
     runUntil?: () => Promise<boolean> | boolean;
     run: () => Promise<any> | any;
   }
+
+  type SpecLoop = SpecLoopForever | SpecLoopUntil;
 
   interface Strategy {
     name: string;
@@ -160,5 +221,6 @@ declare global {
   interface CompiledStrategy {
     strategy: Strategy;
     utils: Utils;
+    ns: NS;
   }
 }

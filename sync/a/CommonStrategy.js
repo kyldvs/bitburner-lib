@@ -1,3 +1,5 @@
+// Check that we have the ram to purchase things. Each function needs 32gb.
+
 const CommonStrategy = {
   /**
    * @param {Utils} utils
